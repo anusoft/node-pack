@@ -1,0 +1,53 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "start:prod": "NODE_ENV=production node server.js",
+
+    "package:bun": "bun run build && bun build ./server.js --compile --outfile=dist/web-server",
+    "package:ncc": "bun run build && ncc build server.js -o dist/ncc -m --no-cache --no-source-map-register",
+    "package:pkg": "bun run build && pkg package.json --out-path dist/pkg/",
+    "build:esbuild-server": "esbuild server.js --bundle --outfile=dist/esbuild/server.js --platform=node --format=cjs --minify --external:next",
+    "package:esbuild": "bun run build && bun run build:esbuild-server"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^5.1.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.513.0",
+    "next": "15.3.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-hook-form": "^7.57.0",
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^3.25.56",
+    "zustand": "^5.0.5"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vercel/ncc": "^0.38.3",
+    "esbuild": "^0.25.5",
+    "eslint": "^9",
+    "eslint-config-next": "15.3.3",
+    "pkg": "^5.8.1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  },
+  "pkg": {
+    "assets": [
+      ".next/standalone/**",
+      ".next/static/**",
+      "public/**"
+    ],
+    "targets": [ "node18-linux-x64" ]
+  }
+}

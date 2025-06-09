@@ -1,0 +1,23 @@
+{
+  "name": "nodejs-packaging-comparison-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "benchmark:all": "bun run scripts/benchmark/run-all-benchmarks.ts",
+    "benchmark:bun": "bun run scripts/benchmark/run-bun-benchmark.ts",
+    "benchmark:ncc": "bun run scripts/benchmark/run-ncc-benchmark.ts",
+    "benchmark:pkg": "bun run scripts/benchmark/run-pkg-benchmark.ts",
+    "benchmark:esbuild": "bun run scripts/benchmark/run-esbuild-benchmark.ts",
+    "benchmark:docker:api": "bun run scripts/benchmark/run-docker-benchmarks.ts",
+
+    "install:all": "bun install && (cd apps/api && bun install) && (cd apps/web && bun install) && (cd packages/shared && bun install) && (cd packages/benchmark && bun install)",
+    "build:api": "cd apps/api && bun run build",
+    "build:web": "cd apps/web && bun run build",
+    "dev:api": "cd apps/api && bun run start:dev",
+    "dev:web": "cd apps/web && bun run dev"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "bun-types": "latest"
+  }
+}

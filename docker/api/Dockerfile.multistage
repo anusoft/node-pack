@@ -1,0 +1,67 @@
+# docker/api/Dockerfile.multistage
+ARG NODE_BUILD_IMAGE=node:18-alpine
+ARG NODE_PROD_IMAGE=node:18-alpine # Or a slimmer variant like node:18-slim
+
+# ---- Builder Stage ----
+FROM ${NODE_BUILD_IMAGE} AS builder
+
+LABEL stage="builder"
+WORKDIR /usr/src/app
+
+# Copy application dependency manifests from apps/api
+COPY apps/api/package.json apps/api/bun.lockb* ./
+COPY apps/api/package-lock.json* ./ # If using npm
+
+# Install all dependencies (including dev for build)
+# RUN bun install --no-save
+RUN npm install --legacy-peer-deps
+
+# Copy Prisma schema and related files from apps/api
+COPY apps/api/prisma ./prisma
+
+# Copy application source code from apps/api
+COPY apps/api/src ./src
+COPY apps/api/tsconfig.json ./tsconfig.json
+COPY apps/api/nest-cli.json ./nest-cli.json
+# Add other necessary config files for build if any
+COPY apps/api/esbuild.config.js ./esbuild.config.js
+COPY apps/api/.env ./ # If .env is used during build
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Build the application
+RUN npm run build # Assumes 'build' script in apps/api/package.json
+
+# ---- Production Stage ----
+FROM ${NODE_PROD_IMAGE} AS production
+
+LABEL stage="production"
+WORKDIR /app
+
+# Copy application dependency manifests for installing only production dependencies
+COPY apps/api/package.json apps/api/bun.lockb* ./
+COPY apps/api/package-lock.json* ./ # If using npm
+RUN npm install --only=production --legacy-peer-deps
+
+# Copy built application from builder stage
+COPY --from=builder /usr/src/app/dist ./dist
+
+# Copy Prisma schema. Prisma client should be part of node_modules from the previous npm install.
+# However, it's good practice to ensure the schema is available if the app needs to refer to it at runtime
+# (e.g. for migrations lookup, though typically not for query engine which uses the generated client).
+COPY --from=builder /usr/src/app/prisma ./prisma
+
+# It can be beneficial to run prisma generate again if there's any doubt about the client's presence
+# or if it needs to be generated against the production environment's specific glibc version (if different from builder).
+# For Alpine (musl) vs Debian (glibc) in prod, this is important. Here both are Alpine.
+# If NODE_PROD_IMAGE was debian based, prisma generate would be more critical here.
+# RUN npx prisma generate # Re-run if prod base image differs significantly or to be absolutely sure.
+# For now, assume @prisma/client in node_modules is sufficient.
+
+# Environment variables
+ENV NODE_ENV=production
+ENV PORT=3001
+
+EXPOSE ${PORT}
+CMD ["node", "dist/main.js"]

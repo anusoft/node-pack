@@ -1,0 +1,41 @@
+# docker/api/Dockerfile.standard
+ARG NODE_VERSION=18-alpine
+FROM node:${NODE_VERSION}
+
+LABEL maintainer="jules@example.com"
+LABEL description="Standard Node.js image for NestJS API"
+
+WORKDIR /usr/src/app
+
+# Copy application dependency manifests
+# Adjust path to point to apps/api from the Docker build context (project root)
+COPY apps/api/package.json apps/api/bun.lockb* ./
+# If apps/api has its own node_modules and doesn't rely on root, context should be apps/api
+# For now, assume build context is project root.
+# Ensure package-lock.json is also copied if npm is used
+COPY apps/api/package-lock.json* ./
+
+# Install production dependencies
+# Using bun install --production if available and works, otherwise npm/yarn
+# RUN bun install --production --no-save # Bun specific
+RUN npm install --only=production --legacy-peer-deps
+
+# Copy Prisma schema and generate client (if not done in build step)
+# This assumes prisma is a direct dependency or peer for production
+COPY apps/api/prisma ./prisma
+RUN npx prisma generate
+
+# Copy application source code and built artifacts
+# This assumes the app is already built outside, and we copy the 'dist'
+# Or, we copy source and build inside. README example copies 'dist'.
+COPY apps/api/dist ./dist
+
+# Environment variables (can be overridden at runtime)
+ENV NODE_ENV=production
+ENV PORT=3001
+
+EXPOSE ${PORT}
+
+# Command to run the application
+# Assumes the main entry point is dist/main.js
+CMD ["node", "dist/main.js"]
