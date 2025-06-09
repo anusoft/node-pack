@@ -1,0 +1,60 @@
+# docker/api/Dockerfile.distroless
+ARG NODE_VERSION=18
+ARG DEBIAN_VERSION=11 # or bullseye
+
+# ---- Builder Stage ----
+FROM node:${NODE_VERSION}-alpine AS builder
+
+WORKDIR /usr/src/app
+
+# Copy application dependency manifests from apps/api
+COPY apps/api/package.json apps/api/bun.lockb* ./
+COPY apps/api/package-lock.json* ./ # If using npm
+
+# Install all dependencies (including dev for build)
+# RUN bun install --no-save
+RUN npm install --legacy-peer-deps
+
+# Copy Prisma schema and related files from apps/api
+COPY apps/api/prisma ./prisma
+
+# Copy application source code from apps/api
+COPY apps/api/src ./src
+COPY apps/api/tsconfig.json ./tsconfig.json
+COPY apps/api/nest-cli.json ./nest-cli.json
+# Add other necessary config files for build if any
+COPY apps/api/esbuild.config.js ./esbuild.config.js
+COPY apps/api/.env ./ # If .env is used during build, though unlikely for this app
+
+# Generate Prisma client (important before build)
+RUN npx prisma generate
+
+# Build the application
+RUN npm run build # Assumes 'build' script in apps/api/package.json (e.g., nest build)
+
+# After build, prune dev dependencies (optional, but good practice)
+RUN npm prune --production --legacy-peer-deps
+
+
+# ---- Production Stage ----
+FROM gcr.io/distroless/nodejs${NODE_VERSION}-debian${DEBIAN_VERSION}
+# FROM gcr.io/distroless/nodejs18-debian11 # Hardcoded example from README
+
+WORKDIR /app
+
+# Copy necessary artifacts from builder stage
+COPY --from=builder /usr/src/app/node_modules ./node_modules
+COPY --from=builder /usr/src/app/dist ./dist
+COPY --from=builder /usr/src/app/prisma ./prisma # For runtime schema access if needed
+# Copy .env or runtime configs if necessary, though typically mounted or injected
+
+# Environment variables
+ENV NODE_ENV=production
+ENV PORT=3001
+
+EXPOSE ${PORT}
+
+# User (distroless images run as non-root by default)
+# USER nonroot:nonroot # Already set in base image
+
+CMD ["dist/main.js"] # Entry point relative to WORKDIR
